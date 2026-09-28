@@ -1,0 +1,41 @@
+{
+  "state": {
+    "plan": [],
+    "bytes": [],
+    "suffix": [],
+    "forms": [],
+    "records": [],
+    "paths": [],
+    "occurrences": 0,
+    "follows": 0,
+    "checked": 0,
+    "literal": 0,
+    "saved": 0,
+    "compressed": 0,
+    "adds": 0,
+    "builds": 0,
+    "parses": 0,
+    "clears": 0,
+    "fails": 0,
+    "ledger": []
+  },
+  "events": [
+    { "kind": "add", "section": "an", "name": ["www", "example", "com"], "type": "A", "ttl": 300, "data": [93, 184, 216, 34] },
+    { "kind": "add", "section": "an", "name": ["mail", "example", "com"], "type": "A", "ttl": 300, "data": [93, 184, 216, 35] },
+    { "kind": "build" },
+    { "kind": "parse" },
+    { "kind": "add", "section": "ar", "name": ["a", "example", "com"], "type": "CNAME", "ttl": 120, "data": ["www", "example", "com"] },
+    { "kind": "add", "section": "ns", "name": ["example", "com"], "type": "A", "ttl": 60, "data": [93, 184, 216, 1] },
+    { "kind": "build" },
+    { "kind": "parse" },
+    { "kind": "add", "section": "an", "name": ["Mail", "example", "com"], "type": "A", "ttl": 10, "data": [1, 2, 3, 4] },
+    { "kind": "add", "section": "an", "name": ["ok"], "type": "TXT", "ttl": 10, "data": [1, 2, 3, 4] },
+    { "kind": "clear" },
+    { "kind": "add", "section": "ns", "name": ["ns1", "example", "com"], "type": "A", "ttl": 30, "data": [10, 0, 0, 1] },
+    { "kind": "add", "section": "an", "name": ["deep", "ns1", "example", "com"], "type": "CNAME", "ttl": 30, "data": ["www", "example", "com"] },
+    { "kind": "add", "section": "ar", "name": ["example", "com"], "type": "A", "ttl": 30, "data": [10, 0, 0, 2] },
+    { "kind": "build" },
+    { "kind": "parse" },
+    { "kind": "parse" }
+  ]
+}

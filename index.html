@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>wirelab 报文装配台</title>
+<style>
+:root{--ink:#16202b;--slate:#f2f5f8;--line:#c3ccd6;--hi:#b3402c;--ok:#1d6b52;--ptr:#2f5d9e;--lit:#5d5a4a;--paper:#fdfefe}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,"Segoe UI",sans-serif;font-size:14px}
+.wl-sheet{max-width:1020px;margin:0 auto;padding:16px 20px 40px}
+.wl-head{border-bottom:3px solid var(--ink);padding-bottom:8px}
+.wl-head h1{margin:0;font-size:21px;letter-spacing:3px}
+.wl-lede{margin:6px 0 0;font-size:12px;line-height:1.7;color:#54616f}
+.wl-tally{margin-top:6px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#33414f;line-height:1.8}
+.wl-tally b{color:var(--ok)}
+.wl-tally i{color:var(--hi);font-style:normal}
+.wl-block{margin-top:18px}
+.wl-cap{margin:0 0 6px;font-size:13px;font-weight:600;color:#2b3a48;border-left:5px solid var(--ink);padding-left:8px;line-height:1.6}
+ol.wl-suffix,ol.wl-forms{list-style:none;margin:0;padding:0}
+ol.wl-suffix li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:5px 6px;border-bottom:1px dotted var(--line)}
+ol.wl-suffix li .tagmap{display:flex;gap:3px}
+.tag{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#e8eef5;border:1px solid var(--line);padding:1px 5px}
+.tag.one{background:#eef3e9}
+.tag.dot{background:none;border:0;color:#7a8794;padding:0 1px}
+.led{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#465565}
+.led.ptr{color:var(--ptr);font-weight:700}
+.led.reuse{color:var(--ok)}
+ol.wl-forms li{border-left:4px solid var(--line);padding:5px 8px;margin-bottom:4px;cursor:pointer;background:var(--slate)}
+ol.wl-forms li.now{border-left-color:var(--hi);background:#f6ecea}
+ol.wl-forms li:hover{border-left-color:var(--ptr)}
+.form-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.form-idx{font-family:ui-monospace,Consolas,monospace;color:#7a8794;font-size:11px;min-width:22px}
+.form-key{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.form-shape{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--lit)}
+.form-shape.ptr{color:var(--ptr)}
+.path{display:none;margin-top:5px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#465565}
+.path.open{display:block}
+.path .hop{background:#e8eef5;border:1px solid var(--line);padding:1px 5px;margin-right:2px}
+.path .arrow{color:#8a97a4;margin-right:2px}
+.wl-ruler{display:flex;gap:2px;font-family:ui-monospace,Consolas,monospace;font-size:10px;color:#7a8794;margin-bottom:2px}
+.wl-ruler span{width:15px;text-align:center}
+.wl-band{display:flex;flex-wrap:wrap;gap:1px;font-family:ui-monospace,Consolas,monospace;font-size:11px}
+.wl-band .cell{width:15px;height:19px;display:flex;align-items:center;justify-content:center;background:#eef2f6;border:1px solid #dbe2e9;cursor:default}
+.wl-band .cell.head{background:#dfe6ee}
+.wl-band .cell.hot{background:var(--hi);color:#fff;border-color:var(--hi)}
+.wl-band .cell.rare{background:#e6efe6}
+.wl-note{margin-top:6px;font-size:12px;color:#54616f;line-height:1.7}
+.wl-tools{margin-top:20px;border-top:2px solid var(--ink);padding-top:10px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;font-size:12px;color:#465565}
+.wl-tools label{display:flex;flex-direction:column;gap:3px}
+.wl-tools input{width:120px;padding:3px 6px;border:1px solid var(--line);font-family:ui-monospace,Consolas,monospace;background:#fff}
+.wl-tools button{padding:4px 12px;border:1px solid var(--ink);background:#fff;cursor:pointer;font-size:13px}
+.wl-tools button.go{background:var(--ink);color:#fff}
+.wl-foot{margin-top:8px;font-size:12px;color:#7a8794}
+</style></head>
+<body>
+<div class="wl-sheet">
+  <header class="wl-head">
+    <h1>报文装配台</h1>
+    <p class="wl-lede" id="lede">正在读 sample/wire.json；后缀账在上，名字账居中，报文带压底。</p>
+    <div class="wl-tally" id="tally"></div>
+  </header>
+
+  <section class="wl-block">
+    <h2 class="wl-cap">后缀账：每个后缀只在它第一次出现的位置写一遍，后面的名字把尾巴换成两字节指针，偏移小的在前</h2>
+    <ol class="wl-suffix" id="suffixRows"></ol>
+  </section>
+
+  <section class="wl-block">
+    <h2 class="wl-cap">名字账：点一行展开它解码时走过的偏移，右边数字是这条名字写出去占了几个字节</h2>
+    <ol class="wl-forms" id="formRows"></ol>
+  </section>
+
+  <section class="wl-block">
+    <h2 class="wl-cap">报文带：格子里是十六进制，前 12 个是头部；指到名字账哪一行，报文带就亮哪一段</h2>
+    <div class="wl-ruler" id="ruler"></div>
+    <div class="wl-band" id="band"></div>
+    <div class="wl-note" id="bandNote"></div>
+  </section>
+
+  <footer class="wl-tools">
+    <label>段<input id="secIn" value="an"></label>
+    <label>名字（点分）<input id="nameIn" value="www.example.com"></label>
+    <label>类型<input id="typeIn" value="A"></label>
+    <label>存活秒数<input id="ttlIn" value="60"></label>
+    <label>数据（A 四个字节或 CNAME 点名）<input id="dataIn" value="10.0.0.7"></label>
+    <button id="doAdd" class="go">登记</button>
+    <button id="doBuild">编码</button>
+    <button id="doParse">解析</button>
+    <button id="doClear">清空</button>
+  </footer>
+  <div class="wl-foot" id="foot"></div>
+</div>
+<script type="module">
+import { render } from "./app.js";
+
+const EMPTY = {
+  plan: [], bytes: [], suffix: [], forms: [], records: [], paths: [],
+  occurrences: 0, follows: 0, checked: 0, literal: 0, saved: 0, compressed: 0,
+  adds: 0, builds: 0, parses: 0, clears: 0, fails: 0, ledger: []
+};
+const BAD = "打不开 sample/wire.json：请照 README 起一个静态服务再打开本页。";
+
+let spec = null;
+let view = null;
+let hot = -1;
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) {
+    node.className = cls;
+  }
+  if (text !== undefined) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+function labelsOf(key) {
+  return String(key).split(".").filter(function (piece) { return piece.length > 0; });
+}
+
+function labelBlocks(key) {
+  const box = el("span", "tagmap");
+  labelsOf(key).forEach(function (label, spot) {
+    if (spot > 0) {
+      box.appendChild(el("span", "tag dot", "."));
+    }
+    box.appendChild(el("span", "tag" + (spot === 0 ? " one" : ""), label));
+  });
+  if (labelsOf(key).length === 0) {
+    box.appendChild(el("span", "tag", "空"));
+  }
+  return box;
+}
+
+function literalCost(key) {
+  let total = 1;
+  labelsOf(key).forEach(function (label) { total += 1 + label.length; });
+  return total;
+}
+
+function drawTally(state) {
+  const node = document.getElementById("tally");
+  node.textContent = "";
+  const marks = [["后缀表自洽", state.suffix_ok], ["字节自洽", state.band_ok],
+                 ["流水自洽", state.flow_ok], ["解析一致", state.wire_ok]];
+  const line = "登记 " + state.adds + " 条，编码 " + state.builds + " 次，解析 " + state.parses +
+    " 次，清空 " + state.clears + " 次，失败 " + state.fails + " 次；后缀 " + state.suffix.length +
+    " 条，名字出现 " + state.occurrences + " 次，用了指针 " + state.compressed +
+    " 次，省下 " + state.saved + " 字节；跳转 " + state.follows + " 次。";
+  node.appendChild(document.createTextNode(line));
+  node.appendChild(document.createElement("br"));
+  marks.forEach(function (pair, spot) {
+    if (spot > 0) {
+      node.appendChild(document.createTextNode("　"));
+    }
+    const word = el(pair[1] ? "b" : "i", "", (pair[1] ? "过 " : "不过 ") + pair[0]);
+    node.appendChild(word);
+  });
+  if (state.ledger.length > 0) {
+    node.appendChild(document.createTextNode("　失败账 " + state.ledger.join(" ")));
+  }
+}
+
+function drawSuffix(state) {
+  const box = document.getElementById("suffixRows");
+  box.textContent = "";
+  if (state.suffix.length === 0) {
+    box.appendChild(el("li", "", "后缀账还是空的：先登记记录再点编码。"));
+    return;
+  }
+  state.suffix.forEach(function (pair) {
+    const key = pair[0];
+    const item = el("li");
+    const off = el("span", "led ptr", "@" + pair[1]);
+    item.appendChild(off);
+    item.appendChild(labelBlocks(key));
+    let reuse = 0;
+    let saved = 0;
+    state.forms.forEach(function (form) {
+      if (form[2] === pair[1]) {
+        reuse += 1;
+        saved += literalCost(form[0]) - form[3];
+      }
+    });
+    item.appendChild(el("span", "led reuse", "被 " + reuse + " 条名字复用，省 " + saved + " 字节"));
+    item.appendChild(el("span", "led", "字面要 " + literalCost(key) + " 字节"));
+    box.appendChild(item);
+  });
+}
+
+function drawForms(state) {
+  const box = document.getElementById("formRows");
+  box.textContent = "";
+  if (state.forms.length === 0) {
+    box.appendChild(el("li", "empty", "还没有编码过：名字账要编码以后才有。"));
+    return;
+  }
+  state.forms.forEach(function (form, spot) {
+    const item = el("li", spot === hot ? "now" : "");
+    const top = el("div", "form-top");
+    top.appendChild(el("span", "form-idx", "#" + (spot + 1)));
+    top.appendChild(labelBlocks(form[0]));
+    if (form[2] >= 0) {
+      top.appendChild(el("span", "form-shape ptr",
+        "字面 " + form[1] + " 个标签 + 指针 @" + form[2] + "，写出去 " + form[3] + " 字节"));
+    } else {
+      top.appendChild(el("span", "form-shape", "全字面，写出去 " + form[3] + " 字节"));
+    }
+    top.appendChild(el("span", "led", "落点 @" + form[4]));
+    item.appendChild(top);
+    const path = el("div", "path" + (spot === hot ? " open" : ""));
+    const walked = state.paths[spot];
+    if (walked) {
+      walked[1].forEach(function (off, at) {
+        if (at > 0) {
+          path.appendChild(el("span", "arrow", "→"));
+        }
+        path.appendChild(el("span", "hop", "@" + off));
+      });
+      path.appendChild(el("span", "led", "　共跳 " + Math.max(0, walked[1].length - labelsOf(form[0]).length) + " 次"));
+    } else {
+      path.appendChild(el("span", "led", "还没解析过，读不出路径。"));
+    }
+    item.appendChild(path);
+    item.addEventListener("click", function () {
+      hot = spot === hot ? -1 : spot;
+      draw();
+    });
+    box.appendChild(item);
+  });
+}
+
+function drawBand(state) {
+  const band = document.getElementById("band");
+  const ruler = document.getElementById("ruler");
+  band.textContent = "";
+  ruler.textContent = "";
+  if (state.bytes.length === 0) {
+    document.getElementById("bandNote").textContent = "报文带是空的：先登记再编码。";
+    return;
+  }
+  state.bytes.forEach(function (byte, spot) {
+    const cell = el("div", "cell" + (spot < 12 ? " head" : ""), byte.toString(16).padStart(2, "0"));
+    if (hot >= 0 && state.forms[hot]) {
+      const from = state.forms[hot][4];
+      const to = from + state.forms[hot][3];
+      if (spot >= from && spot < to) {
+        cell.className += " hot";
+      }
+    }
+    cell.title = "偏移 " + spot;
+    band.appendChild(cell);
+  });
+  for (let spot = 0; spot < state.bytes.length; spot += 4) {
+    ruler.appendChild(el("span", "", String(spot)));
+  }
+  const form = hot >= 0 ? state.forms[hot] : null;
+  document.getElementById("bandNote").textContent = form
+    ? ("亮着的是第 " + (hot + 1) + " 条名字 " + form[0] + "：偏移 " + form[4] + " 起 " + form[3] +
+       " 个字节；头 12 个字节是编号、标志与三段计数。")
+    : "点名字账里的一行，报文带就把那段名字亮出来；头 12 个字节永远是头部。";
+}
+
+function draw() {
+  const shown = latest();
+  drawTally(shown);
+  drawSuffix(shown);
+  drawForms(shown);
+  drawBand(shown);
+}
+
+function latest() {
+  return spec && view ? view.steps[view.steps.length - 1] || EMPTY : EMPTY;
+}
+
+function push(event) {
+  spec.events.push(event);
+  view = render(spec);
+  hot = -1;
+  draw();
+  document.getElementById("foot").textContent =
+    "末条事件 " + event.kind + "；失败 " + view.failed_events + " 次。";
+}
+
+function parseLabels(text) {
+  const parts = String(text).split(".").map(function (piece) { return piece.trim(); })
+    .filter(function (piece) { return piece.length > 0; });
+  return parts;
+}
+
+function parseData(type, text) {
+  if (type === "CNAME") {
+    return parseLabels(text);
+  }
+  return String(text).split(".").map(function (piece) { return Number(piece.trim()); });
+}
+
+function currentType() {
+  return document.getElementById("typeIn").value.trim() === "CNAME" ? "CNAME" : "A";
+}
+
+document.getElementById("doAdd").addEventListener("click", function () {
+  const type = currentType();
+  push({
+    kind: "add",
+    section: document.getElementById("secIn").value.trim(),
+    name: parseLabels(document.getElementById("nameIn").value),
+    type: type,
+    ttl: Number(document.getElementById("ttlIn").value),
+    data: parseData(type, document.getElementById("dataIn").value)
+  });
+});
+
+document.getElementById("doBuild").addEventListener("click", function () {
+  push({ kind: "build" });
+});
+
+document.getElementById("doParse").addEventListener("click", function () {
+  push({ kind: "parse" });
+});
+
+document.getElementById("doClear").addEventListener("click", function () {
+  push({ kind: "clear" });
+});
+
+fetch("sample/wire.json").then(function (reply) {
+  return reply.json();
+}).then(function (data) {
+  spec = data;
+  view = render(spec);
+  document.getElementById("lede").textContent =
+    "场景 " + spec.events.length + " 条事件；后缀账、名字账、报文带都停在最后一步，点名字账的行看读取路径。";
+  draw();
+  document.getElementById("foot").textContent = "失败 " + view.failed_events + " 次。";
+}).catch(function () {
+  document.getElementById("lede").textContent = BAD;
+});
+</script>
+</body>
+</html>
